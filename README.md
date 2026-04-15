@@ -17,8 +17,8 @@ Examples:
 	•	python etl.py --input data/raw.csv --clean outputs/clean.csv --reject outputs/rejected.csv
 	•	python etl.py --input data/raw_bad.csv (shows schema failure)
 
-3.	Output format:
-4.	Show the headers for clean/reject.
+3.	Output format
+Show the headers for clean/reject.
 5.	Failure modes
 
 	•	Missing header → ValueError
