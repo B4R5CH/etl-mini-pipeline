@@ -1,4 +1,5 @@
 # etl-mini-pipeline
+![tests](https://github.com/B4R5CH/etl-mini-pipeline/actions/workflows/tests.yml/badge.svg)
 
 A production-style CSV ETL in Python with schema checks, data validation, idempotent dedupe (by `transaction_id`), clean/rejected outputs (with error reasons), and run-level logging.
 
