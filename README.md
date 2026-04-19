@@ -11,6 +11,7 @@ A production-style CSV ETL in Python with schema checks, data validation, idempo
 - Dedupes by `transaction_id` (idempotency)
 - Writes `clean.csv` + `rejected.csv`
 - Logs run metrics (input/cleaned/rejected + run_id)
+- Loads cleaned rows into SQLite with idempotent inserts (UNIQUE + INSERT OR IGNORE)
 
 ## How to run
 
