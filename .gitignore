@@ -5,3 +5,8 @@ clean.csv
 rejected.csv
 outputs/
 .DS_Store
+etl.db
+
+# Local artifacts
+etl.db
+SESSION_LOG.md
