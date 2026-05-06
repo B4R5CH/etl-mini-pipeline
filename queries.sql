@@ -3,7 +3,7 @@
 -- Purpose:
 -- - inspect loaded data in clean_transactions
 -- - verify DB correctness after loads
--- - demonstrate baseline SQL competence on Project 1
+-- - demonstrate baseline SQL competence
 -- Table:
 --   clean_transactions(transaction_id, amount, currency, run_id)
 -- =========================================================
@@ -226,3 +226,61 @@ FROM (
     GROUP BY currency
 ) AS currency_totals
 ORDER BY total_amount DESC;
+
+
+-- =========================================================
+-- REJECTED TRANSACTIONS VERIFICATION
+-- =========================================================
+
+-- rejected rows per run_id
+SELECT
+    run_id,
+    COUNT(*) AS rejected_row_count
+FROM rejected_transactions
+GROUP BY run_id
+ORDER BY rejected_row_count DESC;
+
+-- reject reasons per run_id
+SELECT
+    run_id,
+    error_reason,
+    COUNT(*) AS rejected_reason_count
+FROM rejected_transactions
+GROUP BY run_id, error_reason
+ORDER BY run_id, rejected_reason_count DESC;
+
+-- duplicate check on rejected idempotency key
+-- should return zero rows if rerun safety is working
+SELECT
+    transaction_id,
+    error_reason,
+    run_id,
+    COUNT(*) AS duplicate_count
+FROM rejected_transactions
+GROUP BY transaction_id, error_reason, run_id
+HAVING COUNT(*) > 1;
+
+
+-- clean vs rejected counts by run_id
+WITH clean_count AS (
+    SELECT
+        run_id,
+        COUNT(*) AS clean_row_count
+    FROM clean_transactions
+    GROUP BY run_id
+),
+rejected_count AS (
+    SELECT
+        run_id,
+        COUNT(*) AS rejected_row_count
+    FROM rejected_transactions
+    GROUP BY run_id
+)
+SELECT
+    c.run_id,
+    c.clean_row_count,
+    COALESCE(r.rejected_row_count, 0) AS rejected_row_count
+FROM clean_count c
+LEFT JOIN rejected_count r
+    ON c.run_id = r.run_id
+ORDER BY c.run_id;
