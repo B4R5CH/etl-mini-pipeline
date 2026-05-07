@@ -1,42 +1,66 @@
 # etl-mini-pipeline
-![tests](https://github.com/B4R5CH/etl-mini-pipeline/actions/workflows/tests.yml/badge.svg)
 
-A production-style CSV ETL in Python with schema checks, data validation, idempotent dedupe (by `transaction_id`), clean/rejected outputs (with error reasons), and run-level logging.
+A small batch ETL project that reads transaction data, validates and classifies rows, separates clean and rejected output, and loads both into SQLite for verification and analysis.
 
-## What it does
-- Reads a CSV
-- Validates schema (required headers)
-- Cleans/validates rows
-- Splits clean vs rejected with error reasons
-- Dedupes by `transaction_id` (idempotency)
-- Writes `clean.csv` + `rejected.csv`
-- Logs run metrics (input/cleaned/rejected + run_id)
-- Loads cleaned rows into SQLite with idempotent inserts (UNIQUE + INSERT OR IGNORE)
+The goal of this project is not just to transform data, but to make pipeline behavior visible, explainable, and rerun-safe.
 
-## How to run
+---
 
-### Valid input
-```bash
-python etl.py --input raw.csv --clean clean.csv --reject rejected.csv
-```
+## What this project does
 
-### Schema failure (missing header)
-```bash
-python etl.py --input raw_bad.csv
-```
-Expected: logs an ERROR and raises `ValueError` describing missing headers.
+The pipeline processes transaction-style CSV data and:
 
-## Output format
+- validates expected schema
+- parses and normalizes rows
+- separates valid rows from rejected rows
+- attaches `run_id` for traceability
+- writes clean and rejected outputs
+- loads both outputs into SQLite
+- supports verification through a SQL query pack
 
-### clean.csv
-Headers:
-- `transaction_id,amount,currency,run_id`
+This repo is being built as a portfolio-clean Project 1 for junior data engineering development.
 
-### rejected.csv
-Headers:
-- `transaction_id,amount,currency,error_reason,run_id`
+---
 
-## Failure modes
-- Missing required header → `ValueError` (fails loud)
-- Invalid `transaction_id` / amount / currency → row goes to `rejected.csv` with `error_reason`
-- Duplicate `transaction_id` within a run → row goes to `rejected.csv` with `duplicate_transaction_id`
+## Why this project exists
+
+This project is designed to demonstrate core batch data engineering skills in a small, explainable system:
+
+- schema validation
+- row-level validation
+- clean vs rejected output handling
+- idempotent database loading
+- SQL-based verification
+- documentation of pipeline behavior
+
+It is intended to show real engineering evidence, not just code that “runs”.
+
+---
+
+## Pipeline flow
+
+High-level flow:
+
+1. Read source rows
+2. Validate schema
+3. Parse and validate each row
+4. Split rows into:
+   - clean rows
+   - rejected rows with `error_reason`
+5. Write output files
+6. Load outputs into SQLite
+7. Verify database state with SQL queries
+
+---
+
+## Project structure
+
+```text
+etl-mini-pipeline/
+├── etl.py
+├── sqlite_load.py
+├── queries.sql
+├── README.md
+├── tests/
+├── sample_data/
+└── .github/workflows/

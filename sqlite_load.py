@@ -79,9 +79,11 @@ if __name__ == "__main__":
 
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
+    
     cur.execute("SELECT COUNT(*) FROM clean_transactions WHERE run_id = ?", ("run_001",))
     print("count_run_001:", cur.fetchone()[0])
 
     cur.execute("SELECT COUNT(*) FROM rejected_transactions WHERE run_id = ?", ("run_001",))
     print("count_run_001:", cur.fetchone()[0])
+
     conn.close()
