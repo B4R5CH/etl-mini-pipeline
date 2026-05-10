@@ -1,25 +1,27 @@
 -- =========================================================
 -- etl-mini-pipeline: SQL Query Pack
 -- Purpose:
--- - inspect loaded data in clean_transactions
--- - verify DB correctness after loads
--- - demonstrate baseline SQL competence
--- Table:
+-- - inspect data loaded into SQLite
+-- - verify clean and rejected loading after pipeline runs
+-- - provide SQL proof for Project 1 behavior
+--
+-- Tables:
 --   clean_transactions(transaction_id, amount, currency, run_id)
+--   rejected_transactions(transaction_id, amount, currency, error_reason, run_id)
 -- =========================================================
 
 
 -- =========================================================
--- 1) TABLE-LEVEL INSPECTION
+-- TABLE INSPECTION
 -- =========================================================
 
--- 1.1 Total clean rows currently in the table
+-- Total clean rows currently loaded
 SELECT
     COUNT(*) AS total_rows
 FROM clean_transactions;
 
 
--- 1.2 Sample 10 clean rows
+-- Sample clean rows
 SELECT
     transaction_id,
     amount,
@@ -29,8 +31,7 @@ FROM clean_transactions
 LIMIT 10;
 
 
--- 1.3 Sample 10 rows for one run_id
--- Edit the run_id value if needed.
+-- Sample rows for a single run
 SELECT
     transaction_id,
     amount,
@@ -42,10 +43,10 @@ LIMIT 10;
 
 
 -- =========================================================
--- 2) BASIC GROUPED REPORTING
+-- CLEAN TRANSACTION VERIFICATION
 -- =========================================================
 
--- 2.1 Row count per currency
+-- Row count by currency
 SELECT
     currency,
     COUNT(*) AS row_count
@@ -54,7 +55,7 @@ GROUP BY currency
 ORDER BY row_count DESC;
 
 
--- 2.2 Total amount per currency
+-- Total amount by currency
 SELECT
     currency,
     SUM(amount) AS total_amount
@@ -63,8 +64,7 @@ GROUP BY currency
 ORDER BY total_amount DESC;
 
 
--- 2.3 Row count and total amount per run_id
--- Verification query: proves what each load inserted into the DB.
+-- Row count and total amount by run
 SELECT
     run_id,
     COUNT(*) AS row_count,
@@ -74,12 +74,8 @@ GROUP BY run_id
 ORDER BY total_amount DESC;
 
 
--- =========================================================
--- 3) DATA QUALITY / CORRECTNESS CHECKS
--- =========================================================
-
--- 3.1 Duplicate check on the idempotency key
--- Should return zero rows if UNIQUE(transaction_id, run_id) is working properly.
+-- Duplicate check on clean-table uniqueness key
+-- Should return zero rows if rerun safety is holding
 SELECT
     transaction_id,
     run_id,
@@ -89,12 +85,7 @@ GROUP BY transaction_id, run_id
 HAVING COUNT(*) > 1;
 
 
--- =========================================================
--- 4) WHERE VS HAVING
--- =========================================================
-
--- 4.1 WHERE filters rows BEFORE grouping
--- Only GBP rows are included before the count is calculated.
+-- WHERE example: row filter before grouping
 SELECT
     currency,
     COUNT(*) AS row_count
@@ -103,8 +94,7 @@ WHERE currency = 'GBP'
 GROUP BY currency;
 
 
--- 4.2 HAVING filters groups AFTER grouping
--- Only keep currency groups whose grouped row count is at least 1.
+-- HAVING example: group filter after grouping
 SELECT
     currency,
     COUNT(*) AS row_count
@@ -114,14 +104,10 @@ HAVING COUNT(*) >= 1;
 
 
 -- =========================================================
--- 5) CTE-BASED REPORTING
+-- STRUCTURED REPORTING PATTERNS
 -- =========================================================
 
--- 5.1 Currency totals for run_001, keeping only totals above 50
--- Demonstrates:
--- - row filtering inside the CTE
--- - grouped intermediate result
--- - outer query filtering on the CTE output
+-- CTE-based grouped totals for run_001 above threshold
 WITH currency_totals AS (
     SELECT
         currency,
@@ -138,10 +124,7 @@ WHERE total_amount > 50
 ORDER BY total_amount DESC;
 
 
--- 5.2 Currency totals with row count for run_001
--- Demonstrates:
--- - grouped metrics in the CTE
--- - querying only columns that exist in the CTE output
+-- CTE-based grouped totals with row count
 WITH currency_totals AS (
     SELECT
         currency,
@@ -160,14 +143,7 @@ WHERE total_amount > 50
 ORDER BY total_amount DESC;
 
 
--- =========================================================
--- 6) CASE WHEN CLASSIFICATION
--- =========================================================
-
--- 6.1 Classify each currency in run_001 as high or low by total amount
--- Demonstrates:
--- - CASE WHEN as classification, not filtering
--- - label tied to the correct metric: SUM(amount)
+-- CASE WHEN classification by grouped total
 SELECT
     currency,
     SUM(amount) AS total_amount,
@@ -181,10 +157,7 @@ GROUP BY currency
 ORDER BY total_amount DESC;
 
 
--- 6.2 Classify each currency in run_001 with both row count and total amount
--- Demonstrates:
--- - multiple grouped metrics
--- - CASE WHEN based on total_amount logic
+-- CASE WHEN classification with row count included
 SELECT
     currency,
     COUNT(*) AS row_count,
@@ -199,15 +172,7 @@ GROUP BY currency
 ORDER BY total_amount DESC;
 
 
--- =========================================================
--- 7) SUBQUERY-BASED REPORTING
--- =========================================================
-
--- 7.1 Same reporting logic as the CTE version, but using a subquery in FROM
--- Demonstrates:
--- - inner grouped result
--- - required subquery alias
--- - outer classification on the subquery output
+-- Subquery version of the same reporting pattern
 SELECT
     currency,
     row_count,
@@ -229,10 +194,10 @@ ORDER BY total_amount DESC;
 
 
 -- =========================================================
--- REJECTED TRANSACTIONS VERIFICATION
+-- REJECTED TRANSACTION VERIFICATION
 -- =========================================================
 
--- rejected rows per run_id
+-- Rejected row count by run
 SELECT
     run_id,
     COUNT(*) AS rejected_row_count
@@ -240,7 +205,8 @@ FROM rejected_transactions
 GROUP BY run_id
 ORDER BY rejected_row_count DESC;
 
--- reject reasons per run_id
+
+-- Reject reasons by run
 SELECT
     run_id,
     error_reason,
@@ -249,8 +215,9 @@ FROM rejected_transactions
 GROUP BY run_id, error_reason
 ORDER BY run_id, rejected_reason_count DESC;
 
--- duplicate check on rejected idempotency key
--- should return zero rows if rerun safety is working
+
+-- Duplicate check on rejected-table uniqueness key
+-- Should return zero rows if rerun safety is holding
 SELECT
     transaction_id,
     error_reason,
@@ -261,7 +228,11 @@ GROUP BY transaction_id, error_reason, run_id
 HAVING COUNT(*) > 1;
 
 
--- clean vs rejected counts by run_id
+-- =========================================================
+-- RECONCILIATION / COMPARISON
+-- =========================================================
+
+-- Clean vs rejected counts by run
 WITH clean_count AS (
     SELECT
         run_id,
@@ -284,3 +255,11 @@ FROM clean_count c
 LEFT JOIN rejected_count r
     ON c.run_id = r.run_id
 ORDER BY c.run_id;
+
+
+-- =========================================================
+-- FUTURE RECONCILIATION / SOURCE-CHECK PLACEHOLDERS
+-- =========================================================
+
+-- Compare clean + rejected DB counts against source input row count
+-- Verify run-level totals against source file expectations
