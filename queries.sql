@@ -1,18 +1,19 @@
 -- =========================================================
 -- etl-mini-pipeline: SQL Query Pack
+-- =========================================================
 -- Purpose:
 -- - inspect data loaded into SQLite
 -- - verify clean and rejected loading after pipeline runs
--- - provide SQL proof for Project 1 behavior
+-- - provide SQL proof for Project 1 behaviour
 --
 -- Tables:
---   clean_transactions(transaction_id, amount, currency, run_id)
---   rejected_transactions(transaction_id, amount, currency, error_reason, run_id)
+-- - clean_transactions(transaction_id, amount, currency, run_id)
+-- - rejected_transactions(transaction_id, amount, currency, error_reason, run_id)
 -- =========================================================
 
 
 -- =========================================================
--- TABLE INSPECTION
+-- 1. TABLE INSPECTION
 -- =========================================================
 
 -- Total clean rows currently loaded
@@ -43,7 +44,7 @@ LIMIT 10;
 
 
 -- =========================================================
--- CLEAN TRANSACTION VERIFICATION
+-- 2. CLEAN TRANSACTION VERIFICATION
 -- =========================================================
 
 -- Row count by currency
@@ -75,7 +76,7 @@ ORDER BY total_amount DESC;
 
 
 -- Duplicate check on clean-table uniqueness key
--- Should return zero rows if rerun safety is holding
+-- Expected result: zero rows if rerun safety is holding.
 SELECT
     transaction_id,
     run_id,
@@ -84,6 +85,10 @@ FROM clean_transactions
 GROUP BY transaction_id, run_id
 HAVING COUNT(*) > 1;
 
+
+-- =========================================================
+-- 3. WHERE VS HAVING BASELINE
+-- =========================================================
 
 -- WHERE example: row filter before grouping
 SELECT
@@ -104,7 +109,7 @@ HAVING COUNT(*) >= 1;
 
 
 -- =========================================================
--- STRUCTURED REPORTING PATTERNS
+-- 4. STRUCTURED REPORTING PATTERNS
 -- =========================================================
 
 -- CTE-based grouped totals for run_001 above threshold
@@ -194,7 +199,7 @@ ORDER BY total_amount DESC;
 
 
 -- =========================================================
--- REJECTED TRANSACTION VERIFICATION
+-- 5. REJECTED TRANSACTION VERIFICATION
 -- =========================================================
 
 -- Rejected row count by run
@@ -217,7 +222,7 @@ ORDER BY run_id, rejected_reason_count DESC;
 
 
 -- Duplicate check on rejected-table uniqueness key
--- Should return zero rows if rerun safety is holding
+-- Expected result: zero rows if rerun safety is holding.
 SELECT
     transaction_id,
     error_reason,
@@ -229,7 +234,7 @@ HAVING COUNT(*) > 1;
 
 
 -- =========================================================
--- RECONCILIATION / COMPARISON
+-- 6. RECONCILIATION / COMPARISON
 -- =========================================================
 
 -- Clean vs rejected counts by run
@@ -251,15 +256,18 @@ SELECT
     c.run_id,
     c.clean_row_count,
     COALESCE(r.rejected_row_count, 0) AS rejected_row_count
-FROM clean_count c
-LEFT JOIN rejected_count r
+FROM clean_count AS c
+LEFT JOIN rejected_count AS r
     ON c.run_id = r.run_id
 ORDER BY c.run_id;
 
 
 -- =========================================================
--- FUTURE RECONCILIATION / SOURCE-CHECK PLACEHOLDERS
+-- 7. FUTURE RECONCILIATION / SOURCE-CHECK PLACEHOLDERS
 -- =========================================================
 
--- Compare clean + rejected DB counts against source input row count
--- Verify run-level totals against source file expectations
+-- Future improvement:
+-- Compare clean + rejected DB counts against source input row count.
+
+-- Future improvement:
+-- Verify run-level totals against source file expectations.

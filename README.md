@@ -2,7 +2,7 @@
 
 A small batch ETL project that reads transaction data, validates and classifies rows, separates clean and rejected output, and loads both into SQLite for verification and analysis.
 
-The goal of this project is not just to transform data, but to make pipeline behavior visible, explainable, and rerun-safe.
+The goal of this project is not just to transform data. The goal is to make pipeline behaviour visible, explainable, and rerun-safe.
 
 ---
 
@@ -10,8 +10,8 @@ The goal of this project is not just to transform data, but to make pipeline beh
 
 The pipeline processes transaction-style CSV data and:
 
-- validates expected schema
-- parses and normalizes rows
+- validates the expected schema
+- parses and normalises rows
 - separates valid rows from rejected rows
 - attaches `run_id` for traceability
 - writes clean and rejected outputs
@@ -24,16 +24,16 @@ This repo is being built as a portfolio-clean Project 1 for junior data engineer
 
 ## Why this project exists
 
-This project is designed to demonstrate core batch data engineering skills in a small, explainable system:
+This project demonstrates core batch data engineering skills in a small, explainable system:
 
 - schema validation
 - row-level validation
 - clean vs rejected output handling
 - idempotent database loading
 - SQL-based verification
-- documentation of pipeline behavior
+- documentation of pipeline behaviour
 
-It is intended to show real engineering evidence, not just code that “runs”.
+It is intended to show real engineering evidence, not just code that runs.
 
 ---
 
@@ -41,15 +41,15 @@ It is intended to show real engineering evidence, not just code that “runs”.
 
 High-level flow:
 
-1. Read source rows
-2. Validate schema
-3. Parse and validate each row
+1. Read source rows.
+2. Validate schema.
+3. Parse and validate each row.
 4. Split rows into:
    - clean rows
    - rejected rows with `error_reason`
-5. Write output files
-6. Load outputs into SQLite
-7. Verify database state with SQL queries
+5. Write output files.
+6. Load outputs into SQLite.
+7. Verify database state with SQL queries.
 
 ---
 
@@ -57,13 +57,13 @@ High-level flow:
 
 ```text
 etl-mini-pipeline/
+├── .github/workflows/
+├── sample_data/
+├── tests/
 ├── etl.py
 ├── sqlite_load.py
 ├── queries.sql
-├── README.md
-├── tests/
-├── sample_data/
-└── .github/workflows/
+└── README.md
 ```
 
 ### Key files
@@ -113,7 +113,7 @@ Schema:
 - `currency`
 - `run_id`
 
-Behavior:
+Behaviour:
 
 - rerun-safe via `UNIQUE(transaction_id, run_id)`
 
@@ -133,7 +133,7 @@ Schema:
 
 One row in `rejected_transactions` represents one rejected source row from a specific pipeline run, including the reason that row failed validation.
 
-Behavior:
+Behaviour:
 
 - rerun-safe via `UNIQUE(transaction_id, error_reason, run_id)`
 
@@ -145,15 +145,12 @@ This prevents duplicate rejected rows for the same run and failure reason when t
 
 Both database tables are designed to be rerun-safe.
 
-The loader uses `INSERT OR IGNORE` together with explicit uniqueness constraints so replaying the same sample data for the same `run_id` does not create duplicates.
+The loader uses `INSERT OR IGNORE` together with explicit uniqueness constraints, so replaying the same sample data for the same `run_id` does not create duplicates.
 
 Current idempotency rules:
 
-- clean rows:
-  - `UNIQUE(transaction_id, run_id)`
-
-- rejected rows:
-  - `UNIQUE(transaction_id, error_reason, run_id)`
+- clean rows: `UNIQUE(transaction_id, run_id)`
+- rejected rows: `UNIQUE(transaction_id, error_reason, run_id)`
 
 This means the project can be rerun without inflating row counts for already-loaded records.
 
@@ -189,7 +186,7 @@ This makes the database state explainable and gives the project a proof-oriented
 
 ## How to run
 
-### 1. Create / activate virtual environment
+### 1. Create / activate a virtual environment
 
 Use your preferred Python environment setup.
 
@@ -245,9 +242,7 @@ This repo is designed to answer questions like:
 
 ## Current milestone
 
-Current project milestone:
-
-**DB-backed pipeline with SQLite**
+Current project milestone: **DB-backed pipeline with SQLite**
 
 - clean rows loaded into SQLite
 - rejected rows loaded into SQLite
@@ -290,10 +285,10 @@ The current focus is correctness, explainability, and portfolio-quality fundamen
 
 Planned next improvements may include:
 
-- expanding rejected-row verification further
 - adding stronger reconciliation against source input totals
-- improving test coverage for loader behavior
-- tightening README documentation around query results and expected outputs
+- improving test coverage for loader behaviour
+- tightening README documentation around expected query results
+- upgrading `sqlite_load.py` to load generated clean/rejected output files through CLI arguments
 
 ---
 
@@ -301,7 +296,7 @@ Planned next improvements may include:
 
 `etl-mini-pipeline` is a small but deliberate batch ETL project built to show:
 
-- clear pipeline behavior
+- clear pipeline behaviour
 - clean vs rejected output handling
 - rerun-safe SQLite loading
 - verification through SQL
