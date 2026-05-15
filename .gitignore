@@ -1,16 +1,23 @@
+# Python cache
 __pycache__/
 *.pyc
-*.log
+
+# Local generated outputs
 clean.csv
 rejected.csv
 outputs/
-.DS_Store
-etl.db
 
-# Local artifacts
-etl.db
+# Local database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+
+# Local session/accountability files
+SESSION_LOG
 SESSION_LOG.md
 
-# Local artifacts
-etl.db
-SESSION_LOG
+# macOS
+.DS_Store
