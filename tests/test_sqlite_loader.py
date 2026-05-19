@@ -1,5 +1,6 @@
 import os
 import sqlite3
+import subprocess
 
 from sqlite_load import (
     init_db,
@@ -15,10 +16,12 @@ def test_sqlite_loader_rerun_safe():
     if os.path.exists(db_path):
         os.remove(db_path)
 
-    init_db(db_path)
+    subprocess.run(["python", "etl.py"], check=True)
 
     cleaned_rows = read_rows_csv("clean.csv")
     rejected_rows = read_rows_csv("rejected.csv")
+
+    init_db(db_path)
 
     load_cleaned_rows(db_path, cleaned_rows)
     load_rejected_rows(db_path, rejected_rows)
@@ -58,4 +61,3 @@ def test_sqlite_loader_rerun_safe():
 
     if os.path.exists(db_path):
         os.remove(db_path)
-
