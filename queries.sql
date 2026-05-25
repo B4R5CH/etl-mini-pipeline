@@ -18,9 +18,13 @@
 
 -- Total clean rows currently loaded
 SELECT
-    COUNT(*) AS total_rows
+    COUNT(*) AS total_clean_rows
 FROM clean_transactions;
 
+-- Total rejected rows currently loaded
+SELECT
+    COUNT(*) AS total_rejected_rows
+FROM rejected_transactions;
 
 -- Sample clean rows
 SELECT
@@ -31,8 +35,17 @@ SELECT
 FROM clean_transactions
 LIMIT 10;
 
+-- Sample rejected rows
+SELECT
+    transaction_id,
+    amount,
+    currency,
+    error_reason,
+    run_id
+FROM rejected_transactions
+LIMIT 10;
 
--- Sample rows for a single run
+-- Sample clean rows for one run
 SELECT
     transaction_id,
     amount,
@@ -55,7 +68,6 @@ FROM clean_transactions
 GROUP BY currency
 ORDER BY row_count DESC;
 
-
 -- Total amount by currency
 SELECT
     currency,
@@ -64,7 +76,6 @@ FROM clean_transactions
 GROUP BY currency
 ORDER BY total_amount DESC;
 
-
 -- Row count and total amount by run
 SELECT
     run_id,
@@ -72,8 +83,7 @@ SELECT
     SUM(amount) AS total_amount
 FROM clean_transactions
 GROUP BY run_id
-ORDER BY total_amount DESC;
-
+ORDER BY run_id;
 
 -- Duplicate check on clean-table uniqueness key
 -- Expected result: zero rows if rerun safety is holding.
@@ -97,7 +107,6 @@ SELECT
 FROM clean_transactions
 WHERE currency = 'GBP'
 GROUP BY currency;
-
 
 -- HAVING example: group filter after grouping
 SELECT
@@ -128,7 +137,6 @@ FROM currency_totals
 WHERE total_amount > 50
 ORDER BY total_amount DESC;
 
-
 -- CTE-based grouped totals with row count
 WITH currency_totals AS (
     SELECT
@@ -147,7 +155,6 @@ FROM currency_totals
 WHERE total_amount > 50
 ORDER BY total_amount DESC;
 
-
 -- CASE WHEN classification by grouped total
 SELECT
     currency,
@@ -160,7 +167,6 @@ FROM clean_transactions
 WHERE run_id = 'run_001'
 GROUP BY currency
 ORDER BY total_amount DESC;
-
 
 -- CASE WHEN classification with row count included
 SELECT
@@ -175,7 +181,6 @@ FROM clean_transactions
 WHERE run_id = 'run_001'
 GROUP BY currency
 ORDER BY total_amount DESC;
-
 
 -- Subquery version of the same reporting pattern
 SELECT
@@ -208,8 +213,7 @@ SELECT
     COUNT(*) AS rejected_row_count
 FROM rejected_transactions
 GROUP BY run_id
-ORDER BY rejected_row_count DESC;
-
+ORDER BY run_id;
 
 -- Reject reasons by run
 SELECT
@@ -219,7 +223,6 @@ SELECT
 FROM rejected_transactions
 GROUP BY run_id, error_reason
 ORDER BY run_id, rejected_reason_count DESC;
-
 
 -- Duplicate check on rejected-table uniqueness key
 -- Expected result: zero rows if rerun safety is holding.
@@ -255,7 +258,8 @@ rejected_count AS (
 SELECT
     c.run_id,
     c.clean_row_count,
-    COALESCE(r.rejected_row_count, 0) AS rejected_row_count
+    COALESCE(r.rejected_row_count, 0) AS rejected_row_count,
+    c.clean_row_count + COALESCE(r.rejected_row_count, 0) AS total_processed_rows
 FROM clean_count AS c
 LEFT JOIN rejected_count AS r
     ON c.run_id = r.run_id

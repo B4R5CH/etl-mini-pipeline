@@ -17,6 +17,8 @@ The goal is to demonstrate core junior data engineering skills:
 - SQL-based verification
 - automated tests
 
+---
+
 ## 2. Pipeline flow
 
 The project flow is:
@@ -30,11 +32,13 @@ raw.csv
 → queries.sql verification
 ```
 
-`etl.py` is responsible for reading the raw input, validating records, and producing clean and rejected output files.
+`etl.py` reads the raw input, validates records, and produces clean and rejected output files.
 
-`sqlite_load.py` is responsible for reading those generated output files and loading them into SQLite tables.
+`sqlite_load.py` reads those generated output files and loads them into SQLite tables.
 
 `queries.sql` is used to inspect and verify the loaded data.
+
+---
 
 ## 3. Validation and rejection logic
 
@@ -44,7 +48,7 @@ The ETL layer separates records into two categories.
 
 Rows are written to `clean.csv` when they satisfy the expected data rules.
 
-Clean rows include fields such as:
+Clean rows include:
 
 - `transaction_id`
 - `amount`
@@ -57,7 +61,7 @@ Rows are written to `rejected.csv` when they fail validation.
 
 Rejected rows preserve useful context from the original input and include an `error_reason` so that the failure can be inspected later.
 
-Rejected rows include fields such as:
+Rejected rows include:
 
 - `transaction_id`
 - `amount`
@@ -66,6 +70,8 @@ Rejected rows include fields such as:
 - `run_id`
 
 This is important because bad data should not silently disappear. It should be captured, classified, and made reviewable.
+
+---
 
 ## 4. SQLite loading
 
@@ -103,6 +109,8 @@ rejected.csv
 
 and inserts those rows into the appropriate SQLite tables.
 
+---
+
 ## 5. Idempotency strategy
 
 The project uses database-level uniqueness constraints and `INSERT OR IGNORE` to make reruns safe.
@@ -123,6 +131,8 @@ This means that if the same run is loaded twice, the database does not duplicate
 
 That is the core idempotency guarantee in this project.
 
+---
+
 ## 6. Verification queries
 
 `queries.sql` contains SQL checks that verify the pipeline output.
@@ -138,16 +148,18 @@ The query pack is used to check:
 
 The purpose of the query pack is not just analytics. It proves that the pipeline state is inspectable after a run.
 
+---
+
 ## 7. Tests
 
-The project includes automated tests for the Python cleaning layer and SQLite loader behavior.
+The project includes automated tests for the Python cleaning layer and SQLite loader behaviour.
 
 Important test coverage includes:
 
-- cleaning helper behavior
-- row parsing behavior
+- cleaning helper behaviour
+- row parsing behaviour
 - SQLite rerun safety
-- loader behavior using generated ETL output files
+- loader behaviour using generated ETL output files
 
 The SQLite loader test proves the key contract:
 
@@ -157,6 +169,8 @@ Second load does not duplicate them.
 ```
 
 That confirms the idempotency design is working.
+
+---
 
 ## 8. Main engineering decisions
 
@@ -180,6 +194,8 @@ SQLite keeps the project local and simple while still introducing real relationa
 
 This supports safe reruns when combined with uniqueness constraints.
 
+---
+
 ## 9. Failure modes this project handles
 
 The project is designed around common data pipeline failure modes:
@@ -193,6 +209,8 @@ The project is designed around common data pipeline failure modes:
 
 The project does not try to solve every production problem. It focuses on the core reliability patterns expected in a small junior-level data engineering project.
 
+---
+
 ## 10. What I would improve next
 
 Possible next improvements:
@@ -204,6 +222,8 @@ Possible next improvements:
 - build a fact table and dimensions for Project 2
 - add more SQL verification around joins and window functions
 - map the local system to Azure services later
+
+---
 
 ## 11. Interview explanation
 
@@ -218,6 +238,8 @@ For idempotency, I used SQLite UNIQUE constraints with INSERT OR IGNORE so rerun
 
 The project helped me understand how a data pipeline is not just about transforming rows, but also proving what happened during a run and making failures inspectable.
 ```
+
+---
 
 ## 12. Closure standard
 

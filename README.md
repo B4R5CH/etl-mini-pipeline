@@ -1,10 +1,8 @@
 # etl-mini-pipeline
 
-![tests](https://github.com/B4R5CH/etl-mini-pipeline/actions/workflows/tests.yml/badge.svg)
+A small batch ETL project that reads transaction data, validates and classifies rows, separates clean and rejected output, and loads both into SQLite for verification and analysis.
 
-A small batch ETL project that reads transaction CSV data, validates rows, separates clean and rejected outputs, and demonstrates rerun-safe SQLite loading.
-
-The goal of this project is to make pipeline behaviour visible, explainable, and verifiable.
+The goal of this project is not just to transform data. The goal is to make pipeline behaviour visible, explainable, testable, and rerun-safe.
 
 ---
 
@@ -16,9 +14,10 @@ The pipeline processes transaction-style CSV data and:
 - parses and normalises rows
 - separates valid rows from rejected rows
 - attaches `run_id` for traceability
-- writes clean and rejected outputs
-- demonstrates idempotent SQLite loading
+- writes clean and rejected output files
+- loads both outputs into SQLite
 - supports verification through a SQL query pack
+- includes tests for cleaning logic and SQLite loader rerun safety
 
 This repo is being built as a portfolio-clean Project 1 for junior data engineering development.
 
@@ -31,9 +30,10 @@ This project demonstrates core batch data engineering skills in a small, explain
 - schema validation
 - row-level validation
 - clean vs rejected output handling
-- run-level traceability
+- explicit rejection reasons
 - idempotent database loading
 - SQL-based verification
+- automated tests
 - documentation of pipeline behaviour
 
 It is intended to show real engineering evidence, not just code that runs.
@@ -44,14 +44,25 @@ It is intended to show real engineering evidence, not just code that runs.
 
 High-level flow:
 
-1. Read source rows.
-2. Validate schema.
+```text
+raw.csv
+→ etl.py
+→ clean.csv / rejected.csv
+→ sqlite_load.py
+→ clean_transactions / rejected_transactions
+→ queries.sql verification
+```
+
+Step-by-step:
+
+1. Read source rows from CSV.
+2. Validate the expected schema.
 3. Parse and validate each row.
 4. Split rows into:
    - clean rows
    - rejected rows with `error_reason`
-5. Write output files.
-6. Demonstrate SQLite table loading.
+5. Write `clean.csv` and `rejected.csv`.
+6. Load both generated output files into SQLite.
 7. Verify database state with SQL queries.
 
 ---
@@ -60,15 +71,19 @@ High-level flow:
 
 ```text
 etl-mini-pipeline/
-├── .github/workflows/      # GitHub Actions CI
-├── tests/                  # Unit tests
-├── etl.py                  # CSV ETL: schema validation, row validation, clean/reject outputs
-├── sqlite_load.py          # SQLite table creation and idempotent insert demonstration
-├── queries.sql             # SQL verification query pack
-├── raw.csv                 # Sample valid/mixed input data
-├── raw_bad.csv             # Sample bad-schema input for failure testing
-├── .gitignore
-└── README.md
+├── .github/workflows/
+├── tests/
+│   ├── conftest.py
+│   ├── test_cleaners.py
+│   └── test_sqlite_loader.py
+├── etl.py
+├── sqlite_load.py
+├── queries.sql
+├── raw.csv
+├── raw_bad.csv
+├── README.md
+└── docs/
+    └── project_walkthrough.md
 ```
 
 ---
@@ -80,37 +95,49 @@ etl-mini-pipeline/
 Main ETL logic for:
 
 - reading source data
-- validating required headers
-- validating and normalising rows
+- validating input schema
+- parsing and normalising rows
 - generating clean and rejected outputs
 - attaching `run_id`
 
 ### `sqlite_load.py`
 
-Creates SQLite tables and demonstrates rerun-safe inserts into:
+Creates SQLite tables and loads the generated ETL output files:
+
+- `clean.csv`
+- `rejected.csv`
+
+into:
 
 - `clean_transactions`
 - `rejected_transactions`
 
-The current script uses sample in-code rows to prove table creation, uniqueness constraints, and `INSERT OR IGNORE` behaviour.
-
-A planned next improvement is to load the generated `clean.csv` and `rejected.csv` files through CLI arguments.
+The loader uses uniqueness constraints and `INSERT OR IGNORE` to support rerun-safe inserts.
 
 ### `queries.sql`
 
 SQL query pack for:
 
 - table inspection
+- clean-table verification
+- rejected-table verification
 - grouped reporting
 - duplicate checks
-- rejected-row verification
 - clean vs rejected run-level comparison
+
+### `tests/`
+
+Automated tests for:
+
+- cleaning/parsing behaviour
+- SQLite loader rerun safety
+- self-contained loader behaviour using generated ETL outputs
 
 ---
 
 ## SQLite tables
 
-The project currently uses two SQLite tables.
+The project uses two SQLite tables.
 
 ### `clean_transactions`
 
@@ -123,9 +150,11 @@ Schema:
 - `currency`
 - `run_id`
 
-Behaviour:
+Rerun-safety rule:
 
-- rerun-safe via `UNIQUE(transaction_id, run_id)`
+```sql
+UNIQUE(transaction_id, run_id)
+```
 
 This prevents duplicate clean rows for the same run when the same load is replayed.
 
@@ -143,9 +172,11 @@ Schema:
 
 One row in `rejected_transactions` represents one rejected source row from a specific pipeline run, including the reason that row failed validation.
 
-Behaviour:
+Rerun-safety rule:
 
-- rerun-safe via `UNIQUE(transaction_id, error_reason, run_id)`
+```sql
+UNIQUE(transaction_id, error_reason, run_id)
+```
 
 This prevents duplicate rejected rows for the same run and failure reason when the same load is replayed.
 
@@ -155,14 +186,14 @@ This prevents duplicate rejected rows for the same run and failure reason when t
 
 Both database tables are designed to be rerun-safe.
 
-The loader uses `INSERT OR IGNORE` together with explicit uniqueness constraints, so replaying the same sample data for the same `run_id` does not create duplicates.
+The loader uses `INSERT OR IGNORE` together with explicit uniqueness constraints, so replaying the same generated output files for the same `run_id` does not create duplicate database rows.
 
 Current idempotency rules:
 
 - clean rows: `UNIQUE(transaction_id, run_id)`
 - rejected rows: `UNIQUE(transaction_id, error_reason, run_id)`
 
-This means the database load can be rerun without inflating row counts for already-loaded records.
+This means the project can be rerun without inflating row counts for already-loaded records.
 
 ---
 
@@ -174,7 +205,8 @@ Current query categories include:
 
 ### Clean table verification
 
-- total rows
+- total clean rows
+- sample clean rows
 - rows per currency
 - total amount per currency
 - rows by `run_id`
@@ -190,7 +222,7 @@ Current query categories include:
 
 - clean vs rejected counts by `run_id`
 
-This gives the project a proof-oriented query layer.
+This makes the database state explainable and gives the project a proof-oriented query layer.
 
 ---
 
@@ -200,43 +232,28 @@ This gives the project a proof-oriented query layer.
 
 Use your preferred Python environment setup.
 
-Example:
+### 2. Install test dependency
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
+pip install pytest
 ```
 
-### 2. Run the ETL
+### 3. Run the ETL
 
-Run the ETL script against the sample input:
+Run the ETL script to produce clean and rejected outputs:
 
 ```bash
-python etl.py --input raw.csv --clean clean.csv --reject rejected.csv
+python etl.py
 ```
 
-This writes:
+This produces:
 
-- `clean.csv`
-- `rejected.csv`
-
-These files are local generated outputs and are intentionally ignored by Git.
-
-### 3. Run the schema failure example
-
-Run the ETL against a bad-schema file:
-
-```bash
-python etl.py --input raw_bad.csv
+```text
+clean.csv
+rejected.csv
 ```
 
-Expected behaviour:
-
-- the pipeline fails loud
-- logs an error
-- raises a `ValueError` describing missing headers
-
-### 4. Demonstrate SQLite loading
+### 4. Load into SQLite
 
 Run the SQLite loader:
 
@@ -244,9 +261,7 @@ Run the SQLite loader:
 python sqlite_load.py
 ```
 
-This creates `etl.db`, creates the clean and rejected tables if they do not already exist, and inserts sample clean/rejected rows using idempotent insert logic.
-
-`etl.db` is a local generated database and is intentionally ignored by Git.
+This reads the generated `clean.csv` and `rejected.csv` files and loads them into SQLite tables.
 
 ### 5. Run verification queries
 
@@ -254,46 +269,22 @@ This creates `etl.db`, creates the clean and rejected tables if they do not alre
 sqlite3 etl.db < queries.sql
 ```
 
----
+### 6. Run tests
 
-## Output format
-
-### `clean.csv`
-
-Headers:
-
-```text
-transaction_id,amount,currency,run_id
+```bash
+python -m pytest -q
 ```
-
-### `rejected.csv`
-
-Headers:
-
-```text
-transaction_id,amount,currency,error_reason,run_id
-```
-
----
-
-## Failure modes
-
-| Failure type | Behaviour |
-|---|---|
-| Missing required header | Fails loud with `ValueError` |
-| Invalid `transaction_id` | Row goes to `rejected.csv` with `error_reason` |
-| Invalid amount | Row goes to `rejected.csv` with `error_reason` |
-| Invalid currency | Row goes to `rejected.csv` with `error_reason` |
-| Duplicate `transaction_id` within a run | Row goes to `rejected.csv` with `duplicate_transaction_id` |
 
 ---
 
 ## What to verify
 
-After running the loader, you should be able to verify:
+After running the ETL and SQLite loader, you should be able to verify:
 
-- clean rows were inserted
-- rejected rows were inserted
+- clean rows were written to `clean.csv`
+- rejected rows were written to `rejected.csv`
+- clean rows were inserted into `clean_transactions`
+- rejected rows were inserted into `rejected_transactions`
 - rerunning the same load does not duplicate clean rows
 - rerunning the same load does not duplicate rejected rows
 - reject reasons are visible per `run_id`
@@ -316,16 +307,21 @@ This repo is designed to answer questions like:
 
 ## Current milestone
 
-Current project milestone: DB-backed pipeline with SQLite.
+Current project milestone: **Project 1 — DB-backed pipeline with SQLite**
 
-Current state:
+Completed capabilities:
 
-- CSV ETL writes clean and rejected outputs
-- SQLite loader creates clean and rejected tables
-- SQLite loader demonstrates rerun-safe inserts
-- SQL verification query pack is established
+- clean rows written by the ETL
+- rejected rows written by the ETL
+- generated ETL outputs loaded into SQLite
+- clean rows loaded into `clean_transactions`
+- rejected rows loaded into `rejected_transactions`
+- rerun safety implemented for both tables
+- SQL verification query pack established
+- SQLite loader rerun-safety test added
+- README and walkthrough documentation added
 
-This closes the first serious database milestone for Project 1 and prepares the repo for richer verification and later multi-table SQL reasoning.
+This closes the first serious database-backed pipeline milestone and prepares the repo for Project 2: an analytical model slice.
 
 ---
 
@@ -336,10 +332,10 @@ This repo currently demonstrates:
 - Python ETL basics
 - schema validation
 - validation and reject classification
-- clean/rejected output handling
-- run-level traceability
+- database loading
 - idempotent insert strategy
 - SQL-based verification
+- automated testing
 - project documentation tied to actual implementation
 
 ---
@@ -348,7 +344,7 @@ This repo currently demonstrates:
 
 This project is intentionally small and focused.
 
-It does not currently aim to be:
+It does **not** currently aim to be:
 
 - a distributed pipeline
 - a cloud-native pipeline
@@ -363,10 +359,12 @@ The current focus is correctness, explainability, and portfolio-quality fundamen
 
 Planned next improvements may include:
 
-- loading generated `clean.csv` and `rejected.csv` into SQLite through CLI arguments
 - adding stronger reconciliation against source input totals
-- improving test coverage for loader behaviour
-- tightening README documentation around expected query results
+- adding richer logging around database load counts
+- adding CLI arguments to `sqlite_load.py`
+- expanding rejected-row edge-case tests
+- introducing a small analytical model layer in Project 2
+- mapping the local system to Azure services later
 
 ---
 
@@ -378,4 +376,5 @@ Planned next improvements may include:
 - clean vs rejected output handling
 - rerun-safe SQLite loading
 - verification through SQL
+- automated testing
 - practical, explainable data engineering fundamentals
