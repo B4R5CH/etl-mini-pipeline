@@ -14,8 +14,8 @@ The pipeline processes transaction-style CSV data and:
 - parses and normalises rows
 - separates valid rows from rejected rows
 - attaches `run_id` for traceability
-- writes clean and rejected output files
-- loads both outputs into SQLite
+- writes `clean.csv` and `rejected.csv`
+- loads both generated outputs into SQLite
 - supports verification through a SQL query pack
 - includes tests for cleaning logic and SQLite loader rerun safety
 
@@ -41,8 +41,6 @@ It is intended to show real engineering evidence, not just code that runs.
 ---
 
 ## Pipeline flow
-
-High-level flow:
 
 ```text
 raw.csv
@@ -76,14 +74,14 @@ etl-mini-pipeline/
 │   ├── conftest.py
 │   ├── test_cleaners.py
 │   └── test_sqlite_loader.py
+├── docs/
+│   └── project_walkthrough.md
 ├── etl.py
 ├── sqlite_load.py
 ├── queries.sql
 ├── raw.csv
 ├── raw_bad.csv
-├── README.md
-└── docs/
-    └── project_walkthrough.md
+└── README.md
 ```
 
 ---
@@ -143,7 +141,7 @@ The project uses two SQLite tables.
 
 Stores accepted rows.
 
-Schema:
+Fields:
 
 - `transaction_id`
 - `amount`
@@ -162,7 +160,7 @@ This prevents duplicate clean rows for the same run when the same load is replay
 
 Stores rejected rows.
 
-Schema:
+Fields:
 
 - `transaction_id`
 - `amount`
@@ -192,8 +190,6 @@ Current idempotency rules:
 
 - clean rows: `UNIQUE(transaction_id, run_id)`
 - rejected rows: `UNIQUE(transaction_id, error_reason, run_id)`
-
-This means the project can be rerun without inflating row counts for already-loaded records.
 
 ---
 
@@ -240,8 +236,6 @@ pip install pytest
 
 ### 3. Run the ETL
 
-Run the ETL script to produce clean and rejected outputs:
-
 ```bash
 python etl.py
 ```
@@ -254,8 +248,6 @@ rejected.csv
 ```
 
 ### 4. Load into SQLite
-
-Run the SQLite loader:
 
 ```bash
 python sqlite_load.py
@@ -292,19 +284,6 @@ After running the ETL and SQLite loader, you should be able to verify:
 
 ---
 
-## Example verification questions
-
-This repo is designed to answer questions like:
-
-- How many clean rows were loaded for each run?
-- How many rejected rows were loaded for each run?
-- Which reject reasons occurred in a run?
-- Are there duplicate clean rows for the same `transaction_id` and `run_id`?
-- Are there duplicate rejected rows for the same `transaction_id`, `error_reason`, and `run_id`?
-- What are the clean vs rejected counts for a given run?
-
----
-
 ## Current milestone
 
 Current project milestone: **Project 1 — DB-backed pipeline with SQLite**
@@ -322,21 +301,6 @@ Completed capabilities:
 - README and walkthrough documentation added
 
 This closes the first serious database-backed pipeline milestone and prepares the repo for Project 2: an analytical model slice.
-
----
-
-## What this project demonstrates
-
-This repo currently demonstrates:
-
-- Python ETL basics
-- schema validation
-- validation and reject classification
-- database loading
-- idempotent insert strategy
-- SQL-based verification
-- automated testing
-- project documentation tied to actual implementation
 
 ---
 

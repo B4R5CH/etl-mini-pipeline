@@ -4,7 +4,7 @@
 
 This project is a small local batch ETL pipeline that reads raw transaction data from CSV, validates it, splits valid and invalid rows into separate outputs, and loads both outputs into SQLite for verification.
 
-The goal is to demonstrate core junior data engineering skills:
+The project demonstrates:
 
 - CSV ingestion
 - schema validation
@@ -20,8 +20,6 @@ The goal is to demonstrate core junior data engineering skills:
 ---
 
 ## 2. Pipeline flow
-
-The project flow is:
 
 ```text
 raw.csv
@@ -69,7 +67,7 @@ Rejected rows include:
 - `error_reason`
 - `run_id`
 
-This is important because bad data should not silently disappear. It should be captured, classified, and made reviewable.
+This keeps invalid data visible and reviewable instead of silently dropping it.
 
 ---
 
@@ -115,21 +113,19 @@ and inserts those rows into the appropriate SQLite tables.
 
 The project uses database-level uniqueness constraints and `INSERT OR IGNORE` to make reruns safe.
 
-For clean records, the uniqueness rule is:
+For clean records:
 
 ```sql
 UNIQUE(transaction_id, run_id)
 ```
 
-For rejected records, the uniqueness rule is:
+For rejected records:
 
 ```sql
 UNIQUE(transaction_id, error_reason, run_id)
 ```
 
-This means that if the same run is loaded twice, the database does not duplicate the same records.
-
-That is the core idempotency guarantee in this project.
+If the same run is loaded twice, the database does not duplicate the same records.
 
 ---
 
@@ -137,7 +133,7 @@ That is the core idempotency guarantee in this project.
 
 `queries.sql` contains SQL checks that verify the pipeline output.
 
-The query pack is used to check:
+The query pack checks:
 
 - loaded clean row counts
 - loaded rejected row counts
@@ -146,7 +142,7 @@ The query pack is used to check:
 - clean vs rejected comparison for a pipeline run
 - grouped reporting over clean transaction data
 
-The purpose of the query pack is not just analytics. It proves that the pipeline state is inspectable after a run.
+The query pack proves that the pipeline state is inspectable after a run.
 
 ---
 
@@ -168,19 +164,17 @@ First load inserts the expected rows.
 Second load does not duplicate them.
 ```
 
-That confirms the idempotency design is working.
-
 ---
 
 ## 8. Main engineering decisions
 
 ### Separate clean and rejected outputs
 
-Clean and rejected rows are written separately so downstream consumers can use valid records while invalid records remain available for audit and debugging.
+Clean and rejected rows are written separately so valid records can be used while invalid records remain available for audit and debugging.
 
 ### Preserve error reasons
 
-Rejected rows include `error_reason` so failures are explainable instead of hidden.
+Rejected rows include `error_reason` so failures are explainable.
 
 ### Use `run_id`
 
@@ -188,7 +182,7 @@ Rejected rows include `error_reason` so failures are explainable instead of hidd
 
 ### Use SQLite first
 
-SQLite keeps the project local and simple while still introducing real relational database loading, constraints, and SQL verification.
+SQLite keeps the project local and simple while still introducing relational loading, constraints, and SQL verification.
 
 ### Use `INSERT OR IGNORE`
 
@@ -207,8 +201,6 @@ The project is designed around common data pipeline failure modes:
 - unclear rejection reasons
 - inability to verify loaded state
 
-The project does not try to solve every production problem. It focuses on the core reliability patterns expected in a small junior-level data engineering project.
-
 ---
 
 ## 10. What I would improve next
@@ -225,23 +217,7 @@ Possible next improvements:
 
 ---
 
-## 11. Interview explanation
-
-A concise interview explanation:
-
-```text
-I built a local batch ETL pipeline that reads raw transaction CSV data, validates it, splits valid and invalid rows into clean and rejected outputs, and then loads both outputs into SQLite.
-
-The project focuses on reliability patterns: schema validation, explicit rejection reasons, run-level traceability, idempotent database loading, and SQL verification.
-
-For idempotency, I used SQLite UNIQUE constraints with INSERT OR IGNORE so rerunning the loader does not duplicate records. I also added tests to prove the loader can safely run more than once against the same generated ETL outputs.
-
-The project helped me understand how a data pipeline is not just about transforming rows, but also proving what happened during a run and making failures inspectable.
-```
-
----
-
-## 12. Closure standard
+## 11. Closure standard
 
 Project 1 is considered closed enough when:
 

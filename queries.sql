@@ -16,17 +16,14 @@
 -- 1. TABLE INSPECTION
 -- =========================================================
 
--- Total clean rows currently loaded
 SELECT
     COUNT(*) AS total_clean_rows
 FROM clean_transactions;
 
--- Total rejected rows currently loaded
 SELECT
     COUNT(*) AS total_rejected_rows
 FROM rejected_transactions;
 
--- Sample clean rows
 SELECT
     transaction_id,
     amount,
@@ -35,7 +32,6 @@ SELECT
 FROM clean_transactions
 LIMIT 10;
 
--- Sample rejected rows
 SELECT
     transaction_id,
     amount,
@@ -45,22 +41,11 @@ SELECT
 FROM rejected_transactions
 LIMIT 10;
 
--- Sample clean rows for one run
-SELECT
-    transaction_id,
-    amount,
-    currency,
-    run_id
-FROM clean_transactions
-WHERE run_id = 'run_001'
-LIMIT 10;
-
 
 -- =========================================================
 -- 2. CLEAN TRANSACTION VERIFICATION
 -- =========================================================
 
--- Row count by currency
 SELECT
     currency,
     COUNT(*) AS row_count
@@ -68,7 +53,6 @@ FROM clean_transactions
 GROUP BY currency
 ORDER BY row_count DESC;
 
--- Total amount by currency
 SELECT
     currency,
     SUM(amount) AS total_amount
@@ -76,7 +60,6 @@ FROM clean_transactions
 GROUP BY currency
 ORDER BY total_amount DESC;
 
--- Row count and total amount by run
 SELECT
     run_id,
     COUNT(*) AS row_count,
@@ -85,7 +68,7 @@ FROM clean_transactions
 GROUP BY run_id
 ORDER BY run_id;
 
--- Duplicate check on clean-table uniqueness key
+-- Duplicate check on clean-table uniqueness key.
 -- Expected result: zero rows if rerun safety is holding.
 SELECT
     transaction_id,
@@ -100,7 +83,7 @@ HAVING COUNT(*) > 1;
 -- 3. WHERE VS HAVING BASELINE
 -- =========================================================
 
--- WHERE example: row filter before grouping
+-- WHERE filters rows before grouping.
 SELECT
     currency,
     COUNT(*) AS row_count
@@ -108,7 +91,7 @@ FROM clean_transactions
 WHERE currency = 'GBP'
 GROUP BY currency;
 
--- HAVING example: group filter after grouping
+-- HAVING filters groups after grouping.
 SELECT
     currency,
     COUNT(*) AS row_count
@@ -121,7 +104,6 @@ HAVING COUNT(*) >= 1;
 -- 4. STRUCTURED REPORTING PATTERNS
 -- =========================================================
 
--- CTE-based grouped totals for run_001 above threshold
 WITH currency_totals AS (
     SELECT
         currency,
@@ -137,7 +119,6 @@ FROM currency_totals
 WHERE total_amount > 50
 ORDER BY total_amount DESC;
 
--- CTE-based grouped totals with row count
 WITH currency_totals AS (
     SELECT
         currency,
@@ -155,7 +136,6 @@ FROM currency_totals
 WHERE total_amount > 50
 ORDER BY total_amount DESC;
 
--- CASE WHEN classification by grouped total
 SELECT
     currency,
     SUM(amount) AS total_amount,
@@ -168,7 +148,6 @@ WHERE run_id = 'run_001'
 GROUP BY currency
 ORDER BY total_amount DESC;
 
--- CASE WHEN classification with row count included
 SELECT
     currency,
     COUNT(*) AS row_count,
@@ -182,7 +161,6 @@ WHERE run_id = 'run_001'
 GROUP BY currency
 ORDER BY total_amount DESC;
 
--- Subquery version of the same reporting pattern
 SELECT
     currency,
     row_count,
@@ -207,7 +185,6 @@ ORDER BY total_amount DESC;
 -- 5. REJECTED TRANSACTION VERIFICATION
 -- =========================================================
 
--- Rejected row count by run
 SELECT
     run_id,
     COUNT(*) AS rejected_row_count
@@ -215,7 +192,6 @@ FROM rejected_transactions
 GROUP BY run_id
 ORDER BY run_id;
 
--- Reject reasons by run
 SELECT
     run_id,
     error_reason,
@@ -224,7 +200,7 @@ FROM rejected_transactions
 GROUP BY run_id, error_reason
 ORDER BY run_id, rejected_reason_count DESC;
 
--- Duplicate check on rejected-table uniqueness key
+-- Duplicate check on rejected-table uniqueness key.
 -- Expected result: zero rows if rerun safety is holding.
 SELECT
     transaction_id,
@@ -240,7 +216,6 @@ HAVING COUNT(*) > 1;
 -- 6. RECONCILIATION / COMPARISON
 -- =========================================================
 
--- Clean vs rejected counts by run
 WITH clean_count AS (
     SELECT
         run_id,
@@ -267,7 +242,7 @@ ORDER BY c.run_id;
 
 
 -- =========================================================
--- 7. FUTURE RECONCILIATION / SOURCE-CHECK PLACEHOLDERS
+-- 7. FUTURE RECONCILIATION PLACEHOLDERS
 -- =========================================================
 
 -- Future improvement:
