@@ -20,6 +20,7 @@ Measure:
 
 ## Dimension table proposals
 ### dim_date
+Describes when the transaction occurred or was loaded.
 Candidate columns:
 - date_key
 - full_date
@@ -28,11 +29,13 @@ Candidate columns:
 - day
 
 ### dim_currency
+Describes transaction currency.
 Candidate columns:
 - currency_key
 - currency_code
 
 ### dim_run
+Describes pipeline run context.
 Candidate columns:
 - run_key
 - run_id
