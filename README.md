@@ -2,78 +2,93 @@
 
 A small batch data engineering project that reads transaction CSV data, validates and classifies rows, writes clean/rejected outputs, loads those outputs into SQLite, and starts a simple analytical model layer.
 
-The goal is to make pipeline behaviour visible, testable, rerun-safe, and explainable from the terminal.
+The goal of this project is not just to transform data. The goal is to make pipeline behaviour visible, explainable, testable, and rerun-safe.
 
 ---
 
 ## Current state
 
-This repo currently covers two linked milestones:
+This repo currently covers two connected stages:
 
 1. **Project 1 — DB-backed ETL pipeline**
-   - CSV ingestion
+   - CSV input
    - schema validation
-   - row-level validation
-   - clean/rejected output files
+   - row validation
+   - clean/rejected output split
    - SQLite loading
    - idempotent inserts
-   - SQL verification queries
-   - automated tests through GitHub Actions
+   - SQL verification
+   - tests and CI
 
-2. **Project 2 — early analytical model slice**
-   - simple dimension tables
-   - simple fact table
-   - source-to-model SQL load script
-   - analytical query examples over the model
+2. **Project 2 — analytical model layer started**
+   - simple fact/dimension model
+   - `fact_transactions`
+   - `dim_currency`
+   - `dim_run`
+   - OLAP-style analytical queries
 
-Project 1 is the main completed milestone. Project 2 has been started as a small local star-schema-style model built from the Project 1 SQLite tables.
+The project is intentionally small and local-first. It is designed to demonstrate data engineering fundamentals clearly before adding cloud, orchestration, or distributed processing.
 
 ---
 
-## What this project demonstrates
+## What this project does
 
-This project demonstrates junior data engineering fundamentals in a small, inspectable system:
+The pipeline processes transaction-style CSV data and:
 
-- schema checks before processing
-- validation and rejection of bad rows
-- explicit `error_reason` values for rejected rows
-- `run_id` traceability
-- clean vs rejected output separation
-- SQLite table loading
-- database-level rerun safety using uniqueness constraints and `INSERT OR IGNORE`
-- SQL verification of loaded data
-- basic analytical modelling with fact and dimension tables
-- automated tests for cleaning logic and loader rerun safety
-- repository documentation and walkthrough notes
+- validates the expected schema
+- parses and validates each row
+- separates accepted rows from rejected rows
+- attaches `run_id` for traceability
+- writes clean and rejected output files
+- loads clean and rejected rows into SQLite
+- prevents duplicate inserts on rerun
+- verifies pipeline state with SQL queries
+- starts an analytical model from the cleaned transaction table
+
+---
+
+## Why this project exists
+
+This project demonstrates core junior data engineering skills in a small, explainable system:
+
+- schema validation
+- data quality classification
+- clean vs rejected output handling
+- explicit `error_reason` values
+- run-level traceability
+- idempotent database loading
+- SQL-based verification
+- basic analytical modelling
+- testable Python functions
+- CI-backed repo hygiene
+
+It is intended to show real engineering evidence, not just code that runs once.
 
 ---
 
 ## Pipeline flow
 
+High-level flow:
+
 ```text
 raw.csv
-  -> etl.py
-  -> clean.csv / rejected.csv
-  -> sqlite_load.py
-  -> clean_transactions / rejected_transactions
-  -> queries.sql verification
-  -> model_schema.sql / model_load.sql
-  -> dim_currency / dim_run / fact_transactions
-  -> analytics_queries.sql
+  ↓
+etl.py
+  ↓
+clean.csv + rejected.csv
+  ↓
+sqlite_load.py
+  ↓
+clean_transactions + rejected_transactions
+  ↓
+queries.sql
+  ↓
+model_schema.sql + model_load.sql
+  ↓
+fact_transactions + dim_currency + dim_run
+  ↓
+analytics_queries.sql
 ```
-
-Step-by-step:
-
-1. `etl.py` reads the source CSV.
-2. The script checks required headers.
-3. Each row is parsed and validated.
-4. Valid rows are written to `clean.csv`.
-5. Invalid rows are written to `rejected.csv` with `error_reason`.
-6. `sqlite_load.py` loads both generated files into SQLite.
-7. `queries.sql` verifies clean/rejected load behaviour.
-8. `model_schema.sql` creates a small analytical model.
-9. `model_load.sql` populates dimensions and fact data from `clean_transactions`.
-10. `analytics_queries.sql` runs reporting queries over the model.
 
 ---
 
@@ -81,22 +96,17 @@ Step-by-step:
 
 ```text
 etl-mini-pipeline/
-├── .github/workflows/
-│   └── tests.yml                 # GitHub Actions test workflow
-├── docs/
-│   └── project_walkthrough.md    # Project 1 walkthrough and engineering notes
-├── tests/
-│   ├── conftest.py
-│   ├── test_cleaners.py          # Tests for cleaning/parsing behaviour
-│   └── test_sqlite_loader.py     # Tests for SQLite loader rerun safety
-├── analytics_queries.sql         # Analytical model query examples
-├── etl.py                        # CSV ETL script
-├── model_load.sql                # Loads analytical model tables from clean_transactions
-├── model_schema.sql              # Creates dimension and fact tables
-├── queries.sql                   # Project 1 SQLite verification query pack
-├── raw.csv                       # Sample source data
-├── raw_bad.csv                   # Bad-schema input used to demonstrate fail-loud behaviour
-├── sqlite_load.py                # Loads clean/rejected CSV outputs into SQLite
+├── .github/workflows/        # GitHub Actions CI
+├── docs/                     # Project walkthrough and model design notes
+├── tests/                    # Unit tests
+├── etl.py                    # CSV ETL: validation, clean/reject outputs, run_id
+├── sqlite_load.py            # SQLite clean/rejected table creation and loading
+├── queries.sql               # Project 1 verification query pack
+├── model_schema.sql          # Project 2 analytical model schema
+├── model_load.sql            # Loads analytical model from clean transaction data
+├── analytics_queries.sql     # OLAP-style queries over the analytical model
+├── raw.csv                   # Sample input data
+├── raw_bad.csv               # Bad-schema input for failure testing
 ├── .gitignore
 └── README.md
 ```
@@ -107,246 +117,91 @@ etl-mini-pipeline/
 
 ### `etl.py`
 
-Main CSV ETL script.
+Main ETL script.
 
 Responsibilities:
 
-- read input CSV data
+- read transaction CSV input
 - validate required headers
-- normalise transaction fields
-- reject invalid transaction IDs
-- reject invalid amounts
-- reject invalid currencies
-- reject duplicate transaction IDs within a run
+- parse and validate rows
+- classify bad rows into rejects
+- deduplicate repeated transaction IDs within a run
 - attach `run_id`
-- write `clean.csv`
-- write `rejected.csv`
-
-Default command:
-
-```bash
-python etl.py
-```
-
-Equivalent explicit command:
-
-```bash
-python etl.py --input raw.csv --clean clean.csv --reject rejected.csv
-```
-
-Optional fixed run ID:
-
-```bash
-python etl.py --run-id run_001
-```
-
-Using a fixed `run_id` is useful when manually testing idempotency and SQL query output.
-
----
+- write clean and rejected output CSV files
 
 ### `sqlite_load.py`
 
-SQLite loader for the generated ETL outputs.
+SQLite loading script.
 
 Responsibilities:
 
-- create `etl.db`
 - create `clean_transactions`
 - create `rejected_transactions`
-- read `clean.csv`
-- read `rejected.csv`
-- insert clean rows into SQLite
-- insert rejected rows into SQLite
-- avoid duplicate inserts on rerun
-
-Default command:
-
-```bash
-python sqlite_load.py
-```
-
-The loader expects `clean.csv` and `rejected.csv` to already exist. Run `etl.py` first.
-
----
+- load `clean.csv`
+- load `rejected.csv`
+- use uniqueness constraints and `INSERT OR IGNORE` to make reruns safe
 
 ### `queries.sql`
 
 Project 1 verification query pack.
 
-It checks:
+Used to check:
 
-- clean row counts
-- sample clean rows
-- grouped clean totals
-- rows by currency
-- rows by run
-- duplicate checks on clean table uniqueness
-- rejected row counts
+- clean table row counts
+- rejected table row counts
+- totals by currency
+- duplicate rows
 - reject reasons by run
-- duplicate checks on rejected table uniqueness
-- clean vs rejected comparison by run
-
-Run with:
-
-```bash
-sqlite3 etl.db < queries.sql
-```
-
----
+- clean vs rejected counts
 
 ### `model_schema.sql`
 
-Creates a small analytical model from the loaded clean transaction data.
+Creates the first analytical model tables:
 
-Tables:
-
+- `fact_transactions`
 - `dim_currency`
 - `dim_run`
-- `fact_transactions`
-
-This is the start of Project 2: moving from raw loaded pipeline tables toward an analytics-ready structure.
-
----
 
 ### `model_load.sql`
 
-Populates the analytical model from `clean_transactions`.
-
-It:
-
-- inserts distinct currencies into `dim_currency`
-- inserts distinct run IDs into `dim_run`
-- populates `fact_transactions`
-- includes count checks comparing source rows and model rows
-
----
+Loads the analytical model tables from Project 1 SQLite data.
 
 ### `analytics_queries.sql`
 
-Query examples over the analytical model.
-
-Current examples:
+Runs OLAP-style analytical queries over the model, including:
 
 - total amount by currency
 - transaction count by currency
-- total amount by run
-
-These queries are intentionally small. Their purpose is to prove the fact/dimension model can support basic reporting questions.
-
----
-
-### `docs/project_walkthrough.md`
-
-Project walkthrough explaining:
-
-- what the pipeline does
-- validation and rejection logic
-- SQLite loading
-- idempotency strategy
-- verification queries
-- tests
-- engineering decisions
-- current improvement areas
-
----
-
-### `tests/`
-
-Automated tests cover:
-
-- `safe_float`
-- `clean_currency`
-- `parse_row`
-- invalid amount handling
-- SQLite loader rerun safety
-- loader behaviour using generated ETL outputs
-
-Run with:
-
-```bash
-python -m pytest -q
-```
-
-The GitHub Actions workflow also runs the test suite on push and pull request.
-
----
-
-## Input data
-
-### `raw.csv`
-
-Sample source file with transaction-style rows.
-
-Required headers:
-
-```text
-transaction_id,amount,currency
-```
-
-The sample file includes both valid rows and intentionally invalid rows so the ETL can demonstrate clean/rejected splitting.
-
-### `raw_bad.csv`
-
-Bad-schema sample file.
-
-It is missing the required `currency` header and is used to demonstrate fail-loud schema validation.
-
----
-
-## Output files
-
-### `clean.csv`
-
-Generated by `etl.py`.
-
-Fields:
-
-```text
-transaction_id,amount,currency,run_id
-```
-
-### `rejected.csv`
-
-Generated by `etl.py`.
-
-Fields:
-
-```text
-transaction_id,amount,currency,error_reason,run_id
-```
-
-Generated output files are intentionally ignored by Git.
+- total amount by pipeline run
 
 ---
 
 ## SQLite tables
 
-### `clean_transactions`
+### Project 1 tables
 
-Stores valid transaction rows.
+#### `clean_transactions`
 
-Fields:
+Stores accepted transaction rows.
+
+Expected columns:
 
 - `transaction_id`
 - `amount`
 - `currency`
 - `run_id`
 
-Rerun-safety rule:
+Purpose:
 
-```sql
-UNIQUE(transaction_id, run_id)
-```
+- store validated transaction data
+- support SQL verification
+- provide the source for the analytical model layer
 
-This prevents the same transaction from being inserted twice for the same pipeline run.
-
----
-
-### `rejected_transactions`
+#### `rejected_transactions`
 
 Stores rejected transaction rows.
 
-Fields:
+Expected columns:
 
 - `transaction_id`
 - `amount`
@@ -354,61 +209,61 @@ Fields:
 - `error_reason`
 - `run_id`
 
-Rerun-safety rule:
+Purpose:
 
-```sql
-UNIQUE(transaction_id, error_reason, run_id)
-```
-
-This prevents duplicate rejected records for the same transaction, reason, and run.
+- preserve rejected source rows
+- make data quality failures inspectable
+- support reject-count and reject-reason analysis
 
 ---
 
-## Analytical model tables
+### Project 2 analytical model tables
 
-### `dim_currency`
+#### `fact_transactions`
 
-One row per distinct currency in `clean_transactions`.
+One row represents one accepted transaction.
 
-Fields:
+Current grain:
 
-- `currency_key`
-- `currency_code`
+```text
+one row = one accepted transaction
+```
 
-### `dim_run`
+Measures:
 
-One row per distinct pipeline run in `clean_transactions`.
-
-Fields:
-
-- `run_key`
-- `run_id`
-
-### `fact_transactions`
-
-One row per clean transaction.
-
-Fields:
-
-- `transaction_id`
-- `currency_key`
-- `run_key`
 - `amount`
 
-This table references `dim_currency` and `dim_run` through foreign keys.
+References:
+
+- `currency_key`
+- `run_key`
+
+#### `dim_currency`
+
+Describes the transaction currency.
+
+#### `dim_run`
+
+Describes the pipeline run that produced the transaction.
 
 ---
 
 ## Rerun safety / idempotency
 
-The SQLite loader uses database constraints and `INSERT OR IGNORE` to make repeated loads safe.
+The SQLite load is designed to be rerun-safe.
 
-Current idempotency rules:
+The project uses:
 
-- clean rows: `UNIQUE(transaction_id, run_id)`
-- rejected rows: `UNIQUE(transaction_id, error_reason, run_id)`
+- explicit uniqueness constraints
+- `INSERT OR IGNORE`
 
-This means rerunning the loader against the same generated outputs should not inflate row counts.
+This means replaying the same load should not inflate row counts with duplicate records.
+
+The intended behaviour is:
+
+- rerunning the ETL can regenerate local output files
+- rerunning the SQLite loader should not duplicate already-loaded rows
+- verification queries should prove whether duplicates exist
 
 ---
 
@@ -421,83 +276,26 @@ python -m venv .venv
 source .venv/bin/activate
 ```
 
-### 2. Install test dependency
+### 2. Run tests
 
 ```bash
-python -m pip install --upgrade pip
-python -m pip install pytest
+pytest
 ```
 
 ### 3. Run the ETL
 
 ```bash
-python etl.py
+python etl.py --input raw.csv --clean clean.csv --reject rejected.csv
 ```
 
-This creates:
+This creates local generated outputs:
 
-```text
-clean.csv
-rejected.csv
-```
+- `clean.csv`
+- `rejected.csv`
 
-### 4. Load generated outputs into SQLite
+These files are ignored by Git.
 
-```bash
-python sqlite_load.py
-```
-
-This creates `etl.db` and loads both generated output files into SQLite.
-
-### 5. Run Project 1 verification queries
-
-```bash
-sqlite3 etl.db < queries.sql
-```
-
-### 6. Build the analytical model
-
-```bash
-sqlite3 etl.db < model_schema.sql
-sqlite3 etl.db < model_load.sql
-```
-
-### 7. Run analytical model queries
-
-```bash
-sqlite3 etl.db < analytics_queries.sql
-```
-
-### 8. Run tests
-
-```bash
-python -m pytest -q
-```
-
----
-
-## Clean local reset
-
-To rerun from a clean local state:
-
-```bash
-rm -f etl.db clean.csv rejected.csv test_etl.db
-python etl.py --run-id run_001
-python sqlite_load.py
-sqlite3 etl.db < queries.sql
-sqlite3 etl.db < model_schema.sql
-sqlite3 etl.db < model_load.sql
-sqlite3 etl.db < analytics_queries.sql
-python -m pytest -q
-```
-
-`etl.db`, generated CSV outputs, and test databases are local artifacts and should not be committed.
-
----
-
-## Schema failure demo
-
-Run:
+### 4. Run the schema failure example
 
 ```bash
 python etl.py --input raw_bad.csv
@@ -505,88 +303,185 @@ python etl.py --input raw_bad.csv
 
 Expected behaviour:
 
-- the script fails loud
-- a `ValueError` is raised
-- the error identifies the missing required header
+- the pipeline fails loud
+- an error is logged
+- a `ValueError` identifies the missing required headers
 
-This demonstrates schema validation before row processing.
+### 5. Load outputs into SQLite
+
+```bash
+python sqlite_load.py
+```
+
+This creates a local SQLite database:
+
+```text
+etl.db
+```
+
+The database file is ignored by Git.
+
+### 6. Run Project 1 verification queries
+
+```bash
+sqlite3 etl.db < queries.sql
+```
+
+### 7. Create analytical model tables
+
+```bash
+sqlite3 etl.db < model_schema.sql
+```
+
+### 8. Load the analytical model
+
+```bash
+sqlite3 etl.db < model_load.sql
+```
+
+### 9. Run analytical queries
+
+```bash
+sqlite3 etl.db < analytics_queries.sql
+```
 
 ---
 
-## Failure modes handled
+## Clean local reset
+
+To remove local generated artifacts:
+
+```bash
+rm -f clean.csv rejected.csv etl.db
+```
+
+Then rerun the project from the ETL step.
+
+---
+
+## Output files
+
+### `clean.csv`
+
+Expected columns:
+
+```text
+transaction_id,amount,currency,run_id
+```
+
+### `rejected.csv`
+
+Expected columns:
+
+```text
+transaction_id,amount,currency,error_reason,run_id
+```
+
+---
+
+## Failure modes
 
 | Failure type | Behaviour |
 |---|---|
-| Missing required CSV header | Fails loud with `ValueError` |
-| Blank transaction ID | Row rejected with `invalid_transaction_id` |
-| Invalid amount | Row rejected with `invalid_amount` |
-| Invalid currency | Row rejected with `invalid_currency` |
-| Duplicate transaction ID within a run | Row rejected with `duplicate_transaction_id` |
-| Loader rerun against same outputs | Duplicate DB rows ignored |
+| Missing required header | Pipeline fails loud with `ValueError` |
+| Blank transaction ID | Row is rejected |
+| Invalid amount | Row is rejected |
+| Invalid currency | Row is rejected |
+| Duplicate transaction ID within a run | Row is rejected |
+| Replayed DB load | Duplicate inserts are ignored |
 
 ---
 
-## What to verify
+## Verification questions
 
-After running the project, you should be able to verify:
+After running the project, the repo should help answer:
 
-- `clean.csv` was produced
-- `rejected.csv` was produced
-- clean rows were inserted into `clean_transactions`
-- rejected rows were inserted into `rejected_transactions`
-- rerunning the loader does not duplicate rows
-- reject reasons are visible by `run_id`
-- clean and rejected counts can be compared by `run_id`
-- dimension tables can be populated from clean transactions
-- fact rows can be joined back to dimensions
-- analytical queries can report totals by currency and run
-- tests pass locally and in CI
+- Did schema validation pass?
+- How many rows were cleaned?
+- How many rows were rejected?
+- Why were rows rejected?
+- Were duplicate clean rows prevented?
+- Were duplicate rejected rows prevented?
+- What is the total amount by currency?
+- How many transactions exist by currency?
+- What is the total accepted amount by pipeline run?
+- How does the analytical model relate to the cleaned transaction table?
+
+---
+
+## Additional documentation
+
+More detailed project notes are available in the `docs/` folder:
+
+- [`docs/project_walkthrough.md`](docs/project_walkthrough.md) explains the Project 1 DB-backed ETL pipeline, including validation, clean/rejected outputs, SQLite loading, idempotency, and verification.
+- [`docs/model_design.md`](docs/model_design.md) explains the current Project 2 analytical model direction, including grain, fact/dimension choices, and intended OLAP-style queries.
 
 ---
 
 ## Current milestone
 
-Current repo state:
+Current state:
 
-- Project 1 DB-backed ETL pipeline is portfolio-clean enough to explain and run locally.
-- Project 2 analytical model slice has started with `dim_currency`, `dim_run`, and `fact_transactions`.
+- Project 1 DB-backed ETL pipeline is established.
+- Clean and rejected rows are loaded into SQLite.
+- SQL verification queries exist.
+- Tests and CI are present.
+- Project 2 analytical modelling has started with a small fact/dimension model.
 
-The next repo-facing improvement should be to make the analytical model layer more robust and documented:
+Current Project 2 model:
 
-- add `DROP TABLE IF EXISTS` or `CREATE TABLE IF NOT EXISTS` behaviour to the model scripts
-- add a short `docs/project_2_model_notes.md`
-- add 5 OLAP-style analytical queries
-- add clear expected results for the model queries
+- `fact_transactions`
+- `dim_currency`
+- `dim_run`
+
+`dim_date` is intentionally deferred until the source pipeline includes a reliable date field.
+
+---
+
+## What this project demonstrates
+
+This repo currently demonstrates:
+
+- Python ETL scripting
+- schema validation
+- row-level validation
+- error classification
+- clean/rejected output handling
+- run-level traceability
+- SQLite loading
+- idempotent insert strategy
+- SQL verification
+- basic dimensional modelling
+- GitHub Actions CI
+- documentation linked to implementation
 
 ---
 
 ## Constraints / current boundaries
 
-This project is intentionally small and local.
+This project is intentionally small and focused.
 
-It is not currently:
+It does not currently aim to be:
 
 - a distributed pipeline
 - a cloud-native pipeline
 - a streaming system
 - a production orchestration system
-- a full warehouse implementation
+- a full warehouse
 
-The current focus is correctness, explainability, rerun safety, SQL verification, and the first step into analytical modelling.
+The current focus is correctness, explainability, local execution, and portfolio-quality fundamentals.
 
 ---
 
 ## Next improvements
 
-Possible next improvements:
+Potential next improvements:
 
-- make `model_schema.sql` safely rerunnable
-- make `model_load.sql` safely rerunnable
-- expand `analytics_queries.sql` to 5 OLAP-style queries
-- add model documentation explaining grain, fact, and dimensions
-- add loader tests for rejected-row edge cases
-- add richer row-count logging around SQLite loads
-- map the local pipeline to Azure services later
+- add loader-focused integration tests
+- strengthen reconciliation between source, clean, rejected, and database counts
+- expand analytical queries to at least 5 OLAP-style questions
+- add a reliable transaction date field before introducing `dim_date`
+- tighten docs as Project 2 develops
 
 ---
 
@@ -594,12 +489,9 @@ Possible next improvements:
 
 `etl-mini-pipeline` is a small but deliberate data engineering repo built to show:
 
-- CSV ETL fundamentals
-- validation and rejection handling
-- clean/rejected output separation
-- SQLite loading
-- rerun-safe database inserts
+- reliable CSV ETL
+- clean vs rejected output handling
+- rerun-safe SQLite loading
 - SQL verification
-- basic analytical modelling
-- automated testing
-- clear portfolio documentation
+- early analytical modelling
+- practical, explainable data engineering fundamentals
