@@ -39,7 +39,7 @@ GROUP BY dim_currency.currency_code;
 
 SELECT
     dim_run.run_id,
-    COUNT(*) AS run_count
+    COUNT(*) AS transaction_count
 FROM fact_transactions
 JOIN dim_run
     ON fact_transactions.run_key = dim_run.run_key
@@ -47,9 +47,10 @@ GROUP BY dim_run.run_id;
 
 
 
--- fact table verification query
-SELECT COUNT(*) AS fact_rows
-FROM fact_transactions;
-
-SELECT COUNT(*) AS source_rows
-FROM clean_transactions;
+-- verify fact table row count matches clean source row count
+SELECT
+    (SELECT COUNT(*) FROM clean_transactions) AS source_rows,
+    (SELECT COUNT(*) FROM fact_transactions) AS fact_rows,
+    (SELECT COUNT(*) FROM clean_transactions)
+    -
+    (SELECT COUNT(*) FROM fact_transactions) AS row_difference;
