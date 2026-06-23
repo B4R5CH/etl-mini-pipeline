@@ -1,6 +1,6 @@
 # etl-mini-pipeline
 
-A small batch data engineering project that reads transaction CSV data, validates and classifies rows, writes clean/rejected outputs, loads those outputs into SQLite, and starts a simple analytical model layer.
+A small batch data engineering project that reads transaction CSV data, validates and classifies rows, writes clean/rejected outputs, loads those outputs into SQLite, and builds the first slice of a simple analytical model layer.
 
 The goal of this project is not just to transform data. The goal is to make pipeline behaviour visible, explainable, testable, and rerun-safe.
 
@@ -26,6 +26,7 @@ This repo currently covers two connected stages:
    - `dim_currency`
    - `dim_run`
    - OLAP-style analytical queries
+   - model verification checks
 
 The project is intentionally small and local-first. It is designed to demonstrate data engineering fundamentals clearly before adding cloud, orchestration, or distributed processing.
 
@@ -44,6 +45,7 @@ The pipeline processes transaction-style CSV data and:
 - prevents duplicate inserts on rerun
 - verifies pipeline state with SQL queries
 - starts an analytical model from the cleaned transaction table
+- verifies that the model preserves expected source counts and grain
 
 ---
 
@@ -59,6 +61,7 @@ This project demonstrates core junior data engineering skills in a small, explai
 - idempotent database loading
 - SQL-based verification
 - basic analytical modelling
+- model verification against source tables
 - testable Python functions
 - CI-backed repo hygiene
 
@@ -88,6 +91,8 @@ model_schema.sql + model_load.sql
 fact_transactions + dim_currency + dim_run
   ↓
 analytics_queries.sql
+  ↓
+model_verification.sql
 ```
 
 ---
@@ -105,6 +110,7 @@ etl-mini-pipeline/
 ├── model_schema.sql          # Project 2 analytical model schema
 ├── model_load.sql            # Loads analytical model from clean transaction data
 ├── analytics_queries.sql     # OLAP-style queries over the analytical model
+├── model_verification.sql    # Project 2 model verification checks
 ├── raw.csv                   # Sample input data
 ├── raw_bad.csv               # Bad-schema input for failure testing
 ├── .gitignore
@@ -173,6 +179,17 @@ Runs OLAP-style analytical queries over the model, including:
 - total amount by currency
 - transaction count by currency
 - total amount by pipeline run
+
+### `model_verification.sql`
+
+Project 2 model verification query pack.
+
+Used to check:
+
+- fact table row counts against the cleaned source table
+- dimension counts against distinct source values
+- rerun safety for model loading
+- whether the analytical model preserves the expected transaction grain
 
 ---
 
@@ -263,6 +280,7 @@ The intended behaviour is:
 
 - rerunning the ETL can regenerate local output files
 - rerunning the SQLite loader should not duplicate already-loaded rows
+- rerunning the model load should not duplicate model rows
 - verification queries should prove whether duplicates exist
 
 ---
@@ -345,6 +363,12 @@ sqlite3 etl.db < model_load.sql
 sqlite3 etl.db < analytics_queries.sql
 ```
 
+### 10. Run Project 2 model verification checks
+
+```bash
+sqlite3 etl.db < model_verification.sql
+```
+
 ---
 
 ## Clean local reset
@@ -389,6 +413,7 @@ transaction_id,amount,currency,error_reason,run_id
 | Invalid currency | Row is rejected |
 | Duplicate transaction ID within a run | Row is rejected |
 | Replayed DB load | Duplicate inserts are ignored |
+| Replayed model load | Duplicate model inserts should be prevented or detected by verification checks |
 
 ---
 
@@ -406,6 +431,7 @@ After running the project, the repo should help answer:
 - How many transactions exist by currency?
 - What is the total accepted amount by pipeline run?
 - How does the analytical model relate to the cleaned transaction table?
+- Do the model verification checks prove that fact and dimension counts match the source data?
 
 ---
 
@@ -427,6 +453,7 @@ Current state:
 - SQL verification queries exist.
 - Tests and CI are present.
 - Project 2 analytical modelling has started with a small fact/dimension model.
+- Project 2 model verification checks are present.
 
 Current Project 2 model:
 
@@ -452,6 +479,7 @@ This repo currently demonstrates:
 - idempotent insert strategy
 - SQL verification
 - basic dimensional modelling
+- model verification
 - GitHub Actions CI
 - documentation linked to implementation
 
@@ -478,7 +506,7 @@ The current focus is correctness, explainability, local execution, and portfolio
 Potential next improvements:
 
 - add loader-focused integration tests
-- strengthen reconciliation between source, clean, rejected, and database counts
+- strengthen reconciliation between source, clean, rejected, database, and model counts
 - expand analytical queries to at least 5 OLAP-style questions
 - add a reliable transaction date field before introducing `dim_date`
 - tighten docs as Project 2 develops
@@ -494,4 +522,5 @@ Potential next improvements:
 - rerun-safe SQLite loading
 - SQL verification
 - early analytical modelling
+- model verification checks
 - practical, explainable data engineering fundamentals
