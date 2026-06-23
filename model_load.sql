@@ -1,10 +1,10 @@
 -- populate dim_currency
-INSERT INTO dim_currency (currency_code)
+INSERT OR IGNORE INTO dim_currency (currency_code)
 SELECT DISTINCT currency
 FROM clean_transactions;
 
 -- populate dim_run
-INSERT INTO dim_run (run_id)
+INSERT OR IGNORE INTO dim_run (run_id)
 SELECT DISTINCT run_id
 FROM clean_transactions;
 
@@ -15,7 +15,6 @@ FROM dim_currency;
 SELECT COUNT(DISTINCT currency) AS source_currency_rows
 FROM clean_transactions;
 
-
 -- verify dim_run
 SELECT COUNT(*) AS dim_run_rows
 FROM dim_run;
@@ -23,9 +22,8 @@ FROM dim_run;
 SELECT COUNT(DISTINCT run_id) AS source_run_rows
 FROM clean_transactions;
 
-
 -- populate fact_transactions
-INSERT INTO fact_transactions (transaction_id, currency_key, run_key, amount)
+INSERT OR IGNORE INTO fact_transactions (transaction_id, currency_key, run_key, amount)
 SELECT
     clean_transactions.transaction_id,
     dim_currency.currency_key,
@@ -43,5 +41,3 @@ FROM fact_transactions;
 
 SELECT COUNT(*) AS source_transaction_rows
 FROM clean_transactions;
-
-
